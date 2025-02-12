@@ -16,16 +16,22 @@ T = TypeVar("T", bound=str)
 def some_processing(
     df1: DataFrame[Literal["df1_id", "df1_somecol1"]],
     df2: DataFrame[Literal["df2_id", "df2_somecol2"]],
-) :
+):
     return df1.join(df2, on=df1["df1_id"] == df2["df2_id"], how="left").select(
-        [df1["df1_id"], df1["df1_somecol1"], df2["df2_id"], df2["df2_somecol2"], F.lit(1).alias("lit_col")]
+        [*df1.columns, df2["df2_id"], df2["df2_somecol2"], F.lit(1).alias("lit_col")]
     )
+
 
 def test_some_processing(spark: SparkSession) -> None:
     df1 = spark.createDataFrame([("1", "A"), ("2", "B")], ("df1_id", "df1_somecol1"))
     df2 = spark.createDataFrame([("1", "X"), ("3", "Y")], ("df2_id", "df2_somecol2"))
     result = some_processing(df1, df2)
-    assert_type(result, DataFrame[Literal["df1_id", "df1_somecol1", "df2_id", "df2_somecol2", "lit_col"]])
+    assert_type(
+        result,
+        DataFrame[
+            Literal["df1_id", "df1_somecol1", "df2_id", "df2_somecol2", "lit_col"]
+        ],
+    )
 
 
 def test_column_type_propagation() -> None:
@@ -84,6 +90,33 @@ def test_aggregation_operations() -> None:
     count_col = F.count(val_col)
     assert_type(count_col, Column[Literal["lit"], Literal["expr"]])
 
+def test_complex_when_regexp() -> None:
+    # Test complex when conditions with regexp and date conversions
+    date_col = F.col("date_string")
+    
+    # Complex when chain with regexp patterns and date conversions
+    parsed_date = (
+        F.when(
+            F.regexp_like(date_col, F.lit(r"^\d{4}-\d{2}-\d{2}$")),
+            F.to_date(date_col, "yyyy-MM-dd")
+        ).when(
+            F.regexp_like(date_col, F.lit(r"^\d{2}/\d{2}/\d{4}$")), 
+            F.to_date(date_col, "MM/dd/yyyy")
+        ).otherwise(F.lit(None))
+    )
+    
+    assert_type(parsed_date, Column[Literal["date_string", "lit"], Literal["expr"]])
+
+    # Test with multiple regexp conditions combined
+    complex_date = (
+        F.when(
+            F.regexp_like(date_col, F.lit(r"^\d{4}")) & 
+            F.regexp_like(date_col, F.lit(r"\d{2}$")),
+            F.to_date(date_col, "yyyy-MM-dd")
+        ).otherwise(F.current_date())
+    )
+    
+    assert_type(complex_date, Column[Literal["date_string", "lit"], Literal["expr"]])
 
 def test_boolean_operations() -> None:
     # Test negation operator
