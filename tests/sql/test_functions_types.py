@@ -188,10 +188,10 @@ if TYPE_CHECKING:
 
         # Select and rename columns
         df2 = df.select(
-            *[F.col("name"),
+            *F.col("name"),
             F.col("age"),
             F.col("salary").alias("annual_salary"),
-            F.lit("2024").alias("year"),]
+            F.lit("2024").alias("year"),
         )
         assert_type(df2, DataFrame[Literal["name", "age", "annual_salary", "year"]])
 
