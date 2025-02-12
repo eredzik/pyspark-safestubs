@@ -5,8 +5,6 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
-  release:
-    types: [created]
 
 jobs:
   test:
@@ -37,13 +35,51 @@ jobs:
         run: |
           pyright pyspark-stubs/
 
-  publish:
+  create-release:
     needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'created'
+    outputs:
+      version: ${{ steps.bump_version.outputs.new_version }}
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          # Get the current version from setup.py or pyproject.toml
+          current_version=$(grep -Po "(?<=version=\")[^\"]*" setup.py)
+          # Bump patch version
+          new_version=$(echo $current_version | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          # Update version in setup.py
+          sed -i "s/version=\"${current_version}\"/version=\"${new_version}\"/" setup.py
+          echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add setup.py
+          git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
+          git tag v${{ steps.bump_version.outputs.new_version }}
+          git push && git push --tags
+          gh release create v${{ steps.bump_version.outputs.new_version }} \
+            --title "Release v${{ steps.bump_version.outputs.new_version }}" \
+            --generate-notes
+
+  publish:
+    needs: create-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: v${{ needs.create-release.outputs.version }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
