@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Literal, TypeVar
 
-from pyspark.sql import functions as F
+from pyspark.sql import functions as F, DataFrame
 from pyspark.sql.column import Column
 
 if TYPE_CHECKING:
@@ -8,8 +8,24 @@ if TYPE_CHECKING:
         from typing import assert_type
     except ImportError:
         from typing_extensions import assert_type
+    from pyspark.sql.session import SparkSession
 
 T = TypeVar("T", bound=str)
+
+
+def some_processing(
+    df1: DataFrame[Literal["df1_id", "df1_somecol1"]],
+    df2: DataFrame[Literal["df2_id", "df2_somecol2"]],
+) :
+    return df1.join(df2, on=df1["df1_id"] == df2["df2_id"], how="left").select(
+        [df1["df1_id"], df1["df1_somecol1"], df2["df2_id"], df2["df2_somecol2"], F.lit(1).alias("lit_col")]
+    )
+
+def test_some_processing(spark: SparkSession) -> None:
+    df1 = spark.createDataFrame([("1", "A"), ("2", "B")], ("df1_id", "df1_somecol1"))
+    df2 = spark.createDataFrame([("1", "X"), ("3", "Y")], ("df2_id", "df2_somecol2"))
+    result = some_processing(df1, df2)
+    assert_type(result, DataFrame[Literal["df1_id", "df1_somecol1", "df2_id", "df2_somecol2", "lit_col"]])
 
 
 def test_column_type_propagation() -> None:
@@ -33,7 +49,7 @@ def test_column_type_propagation() -> None:
 
     # Test when condition
     when_col = F.when(F.col("flag") == F.lit(True), 1).otherwise(0)
-    assert_type(when_col, Column[Literal["flag", 'lit'], Literal["expr"]])
+    assert_type(when_col, Column[Literal["flag", "lit"], Literal["expr"]])
 
 
 def test_string_operations() -> None:
@@ -66,7 +82,7 @@ def test_aggregation_operations() -> None:
 
     # Test count
     count_col = F.count(val_col)
-    assert_type(count_col, Column[Literal['lit'], Literal['expr']])
+    assert_type(count_col, Column[Literal["lit"], Literal["expr"]])
 
 
 def test_boolean_operations() -> None:
@@ -84,13 +100,13 @@ def test_regexp_operations() -> None:
     # Test regexp_like
     text_col = F.col("text")
     pattern = "^[A-Z].*"
-    
+
     # Basic regexp_like
     matches = F.regexp_like(text_col, pattern)
     assert_type(matches, Column[Literal["text"], Literal["expr"]])
-    
+
     # regexp_like with case sensitivity flag
-    
+
     # Combining regexp_like with other operations
     combined = ~F.regexp_like(text_col, pattern)
     assert_type(combined, Column[Literal["text"], Literal["expr"]])
