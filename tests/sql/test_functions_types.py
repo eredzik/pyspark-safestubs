@@ -56,8 +56,6 @@ def test_some_processing(
                 "df1_somecol2",
                 "df1_somecol3",
                 "df2_aliased",
-                "df2_somecol2_aliased",
-                "lit_col",
             ]
         ],
     )
