@@ -69,6 +69,33 @@ def test_aggregation_operations() -> None:
     assert_type(count_col, Column[Literal['lit'], Literal['expr']])
 
 
+def test_boolean_operations() -> None:
+    # Test negation operator
+    bool_col = F.col("flag")
+    negated = ~bool_col
+    assert_type(negated, Column[Literal["flag"], Literal["flag"]])
+
+    # Test combined boolean operations
+    combined = ~(bool_col & F.col("other_flag"))
+    assert_type(combined, Column[Literal["flag", "other_flag"], Literal["expr"]])
+
+
+def test_regexp_operations() -> None:
+    # Test regexp_like
+    text_col = F.col("text")
+    pattern = "^[A-Z].*"
+    
+    # Basic regexp_like
+    matches = F.regexp_like(text_col, pattern)
+    assert_type(matches, Column[Literal["text"], Literal["expr"]])
+    
+    # regexp_like with case sensitivity flag
+    
+    # Combining regexp_like with other operations
+    combined = ~F.regexp_like(text_col, pattern)
+    assert_type(combined, Column[Literal["text"], Literal["expr"]])
+
+
 if TYPE_CHECKING:
     from pyspark.sql.dataframe import DataFrame
     from pyspark.sql.session import SparkSession
