@@ -15,24 +15,24 @@ if TYPE_CHECKING:
 T = TypeVar("T", bound=LiteralString)
 
 
-def some_processing(
-    df: DataFrame[T],
+def add_sbti_targets(
+    df: "DataFrame[T]",
     sbti_df: DataFrame[Literal["df2_id", "df2_somecol2", "test2"]],
-    active_year_col: T,
-    bvd_col_name: T,
+    active_year_col: "T",
+    bvd_col_name: "T",
 ):
     selected = df.join(
         sbti_df,
         on=(
-            F.col(active_year_col)
-            == sbti_df["df2_id"] & (F.col(bvd_col_name) == sbti_df["df2_id"])
+            (F.col(active_year_col)
+            == sbti_df["df2_id"]) & (F.col(bvd_col_name) == sbti_df["df2_id"])
         ),
         how="left",
     ).select(
         *df.columns,
         F.col("df2_id").alias("df2_aliased"),
-        F.col("df2_somecol2").alias("df2_somecol2_aliased"),
-        F.lit(1).alias("lit_col"),
+        # F.col("df2_somecol2").alias("df2_somecol2_aliased"),
+        # F.lit(1).alias("lit_col"),
     )
     return selected
 
@@ -41,7 +41,7 @@ def test_some_processing(
     df1: DataFrame[Literal["df1_id", "df1_somecol1", "df1_somecol2", "df1_somecol3"]],
     df2: DataFrame[Literal["df2_id", "df2_somecol2", "test2"]],
 ) -> None:
-    result = some_processing(
+    result = add_sbti_targets(
         df=df1,
         sbti_df=df2,
         active_year_col="df1_somecol1",
@@ -190,10 +190,10 @@ if TYPE_CHECKING:
 
         # Select and rename columns
         df2 = df.select(
-            F.col("name"),
+            *[F.col("name"),
             F.col("age"),
             F.col("salary").alias("annual_salary"),
-            F.lit("2024").alias("year"),
+            F.lit("2024").alias("year"),]
         )
         assert_type(df2, DataFrame[Literal["name", "age", "annual_salary", "year"]])
 

@@ -39,16 +39,12 @@ DecimalLiteral = Decimal
 DateTimeLiteral = Union[datetime.datetime, datetime.date]
 
 class _JoinContext(Generic[T, T2]):
-    @overload
+
     def select(
         self,
         *cols: Column[Union[T, T2, Literal["lit"]], OutOther],
     ) -> DataFrame[OutOther]: ...
-    @overload
-    def select(
-        self,
-        cols: list[Column[Union[T, T2, Literal["lit"]], OutOther]],
-    ) -> DataFrame[OutOther]: ...
+   
 
 class DataFrame(PandasMapOpsMixin, PandasConversionMixin, Generic[T]):
     is_cached: bool
