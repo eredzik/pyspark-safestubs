@@ -46,12 +46,12 @@ jobs:
       - name: Bump version
         id: bump_version
         run: |
-          # Get the current version from setup.py or pyproject.toml
-          current_version=$(grep -Po "(?<=version=\")[^\"]*" setup.py)
+          # Get the current version from pyproject.toml
+          current_version=$(grep -Po "(?<=version = \")[^\"]*" pyproject.toml)
           # Bump patch version
           new_version=$(echo $current_version | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
-          # Update version in setup.py
-          sed -i "s/version=\"${current_version}\"/version=\"${new_version}\"/" setup.py
+          # Update version in pyproject.toml
+          sed -i "s/version = \"${current_version}\"/version = \"${new_version}\"/" pyproject.toml
           echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
@@ -60,7 +60,7 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add setup.py
+          git add pyproject.toml
           git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
           git tag v${{ steps.bump_version.outputs.new_version }}
           git push && git push --tags
