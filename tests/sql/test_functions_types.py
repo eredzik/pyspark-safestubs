@@ -32,7 +32,7 @@ def add_sbti_targets(
         *df.columns,
         F.col("df2_id").alias("df2_aliased"),
         # F.col("df2_somecol2").alias("df2_somecol2_aliased"),
-        # F.lit(1).alias("lit_col"),
+        F.lit(1).alias("lit_col"),
     )
     return selected
 
@@ -56,6 +56,7 @@ def test_some_processing(
                 "df1_somecol2",
                 "df1_somecol3",
                 "df2_aliased",
+                "lit_col"
             ]
         ],
     )
