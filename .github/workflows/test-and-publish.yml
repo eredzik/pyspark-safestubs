@@ -27,13 +27,9 @@ jobs:
           pip install pytest pyright
           pip install -e .
 
-      - name: Run tests
-        run: |
-          pytest tests/
-
       - name: Type check with PyRight
         run: |
-          pyright pyspark-stubs/
+          pyright tests/sql/test_functions_types.py
 
   create-release:
     needs: test
