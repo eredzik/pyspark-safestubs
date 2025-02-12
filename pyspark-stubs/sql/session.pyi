@@ -1,3 +1,6 @@
+from types import TracebackType
+from typing import Any, Iterable, LiteralString, TypeVar, overload
+
 from py4j.java_gateway import JavaObject
 from pyspark import SparkConf, SparkContext
 from pyspark.rdd import RDD
@@ -13,10 +16,10 @@ from pyspark.sql.streaming import DataStreamReader, StreamingQueryManager
 from pyspark.sql.types import AtomicType, StructType
 from pyspark.sql.udf import UDFRegistration
 from pyspark.sql.udtf import UDTFRegistration
-from types import TracebackType
-from typing import Any, Iterable, overload
 
 __all__ = ['SparkSession']
+
+T = TypeVar("T", bound=LiteralString)
 
 class classproperty(property):
     def __get__(self, instance: Any, owner: Any = None) -> SparkSession.Builder: ...
@@ -57,7 +60,7 @@ class SparkSession(SparkConversionMixin):
     def udtf(self) -> UDTFRegistration: ...
     def range(self, start: int, end: int | None = None, step: int = 1, numPartitions: int | None = None) -> DataFrame: ...
     @overload
-    def createDataFrame(self, data: Iterable['RowLike'], schema: list[str] | tuple[str, ...] = ..., samplingRatio: float | None = ...) -> DataFrame: ...
+    def createDataFrame(self, data: Iterable['RowLike'], schema: list[T] | tuple[T, ...] = ..., samplingRatio: float | None = ...) -> DataFrame[T]: ...
     @overload
     def createDataFrame(self, data: RDD[RowLike], schema: list[str] | tuple[str, ...] = ..., samplingRatio: float | None = ...) -> DataFrame: ...
     @overload

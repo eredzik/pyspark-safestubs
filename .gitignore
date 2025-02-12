@@ -2,3 +2,4 @@ build/
 pyspark_stubs.egg-info/
 .mypy_cache/
 dist/
+.venv/
