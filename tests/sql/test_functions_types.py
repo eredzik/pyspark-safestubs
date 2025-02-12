@@ -4,7 +4,10 @@ from pyspark.sql import functions as F
 from pyspark.sql.column import Column
 
 if TYPE_CHECKING:
-    from typing import assert_type
+    try:
+        from typing import assert_type
+    except ImportError:
+        from typing_extensions import assert_type
 
 T = TypeVar("T", bound=str)
 
