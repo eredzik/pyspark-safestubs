@@ -1,35 +1,64 @@
 from typing import TYPE_CHECKING, Literal, TypeVar
+from typing_extensions import LiteralString
 
 from pyspark.sql import functions as F, DataFrame
 from pyspark.sql.column import Column
+from pyspark.sql.window import WindowSpec
 
 if TYPE_CHECKING:
     try:
-        from typing import assert_type
+        from typing import assert_type  # type: ignore
     except ImportError:
         from typing_extensions import assert_type
     from pyspark.sql.session import SparkSession
 
-T = TypeVar("T", bound=str)
+T = TypeVar("T", bound=LiteralString)
 
 
 def some_processing(
-    df1: DataFrame[Literal["df1_id", "df1_somecol1"]],
-    df2: DataFrame[Literal["df2_id", "df2_somecol2"]],
+    df: DataFrame[T],
+    sbti_df: DataFrame[Literal["df2_id", "df2_somecol2", "test2"]],
+    active_year_col: T,
+    bvd_col_name: T,
 ):
-    return df1.join(df2, on=df1["df1_id"] == df2["df2_id"], how="left").select(
-        [*df1.columns, df2["df2_id"], df2["df2_somecol2"], F.lit(1).alias("lit_col")]
+    selected = df.join(
+        sbti_df,
+        on=(
+            F.col(active_year_col)
+            == sbti_df["df2_id"] & (F.col(bvd_col_name) == sbti_df["df2_id"])
+        ),
+        how="left",
+    ).select(
+        *df.columns,
+        F.col("df2_id").alias("df2_aliased"),
+        F.col("df2_somecol2").alias("df2_somecol2_aliased"),
+        F.lit(1).alias("lit_col"),
     )
+    return selected
 
 
-def test_some_processing(spark: SparkSession) -> None:
-    df1 = spark.createDataFrame([("1", "A"), ("2", "B")], ("df1_id", "df1_somecol1"))
-    df2 = spark.createDataFrame([("1", "X"), ("3", "Y")], ("df2_id", "df2_somecol2"))
-    result = some_processing(df1, df2)
+def test_some_processing(
+    df1: DataFrame[Literal["df1_id", "df1_somecol1", "df1_somecol2", "df1_somecol3"]],
+    df2: DataFrame[Literal["df2_id", "df2_somecol2", "test2"]],
+) -> None:
+    result = some_processing(
+        df=df1,
+        sbti_df=df2,
+        active_year_col="df1_somecol1",
+        bvd_col_name="df1_somecol2",
+    )
     assert_type(
         result,
         DataFrame[
-            Literal["df1_id", "df1_somecol1", "df2_id", "df2_somecol2", "lit_col"]
+            Literal[
+                "df1_id",
+                "df1_somecol1",
+                "df1_somecol2",
+                "df1_somecol3",
+                "df2_aliased",
+                "df2_somecol2_aliased",
+                "lit_col",
+            ]
         ],
     )
 
@@ -90,33 +119,35 @@ def test_aggregation_operations() -> None:
     count_col = F.count(val_col)
     assert_type(count_col, Column[Literal["lit"], Literal["expr"]])
 
+
 def test_complex_when_regexp() -> None:
     # Test complex when conditions with regexp and date conversions
     date_col = F.col("date_string")
-    
+
     # Complex when chain with regexp patterns and date conversions
     parsed_date = (
         F.when(
             F.regexp_like(date_col, F.lit(r"^\d{4}-\d{2}-\d{2}$")),
-            F.to_date(date_col, "yyyy-MM-dd")
-        ).when(
-            F.regexp_like(date_col, F.lit(r"^\d{2}/\d{2}/\d{4}$")), 
-            F.to_date(date_col, "MM/dd/yyyy")
-        ).otherwise(F.lit(None))
+            F.to_date(date_col, "yyyy-MM-dd"),
+        )
+        .when(
+            F.regexp_like(date_col, F.lit(r"^\d{2}/\d{2}/\d{4}$")),
+            F.to_date(date_col, "MM/dd/yyyy"),
+        )
+        .otherwise(F.lit(None))
     )
-    
+
     assert_type(parsed_date, Column[Literal["date_string", "lit"], Literal["expr"]])
 
     # Test with multiple regexp conditions combined
-    complex_date = (
-        F.when(
-            F.regexp_like(date_col, F.lit(r"^\d{4}")) & 
-            F.regexp_like(date_col, F.lit(r"\d{2}$")),
-            F.to_date(date_col, "yyyy-MM-dd")
-        ).otherwise(F.current_date())
-    )
-    
+    complex_date = F.when(
+        F.regexp_like(date_col, F.lit(r"^\d{4}"))
+        & F.regexp_like(date_col, F.lit(r"\d{2}$")),
+        F.to_date(date_col, "yyyy-MM-dd"),
+    ).otherwise(F.current_date())
+
     assert_type(complex_date, Column[Literal["date_string", "lit"], Literal["expr"]])
+
 
 def test_boolean_operations() -> None:
     # Test negation operator
@@ -188,20 +219,22 @@ if TYPE_CHECKING:
         )
 
         # Filter data
+
         df4 = df3.filter(
             (F.col("salary_monthly") > 400) & F.col("name_upper").startswith("A")
         )
+
         assert_type(
             df4,
             DataFrame[
                 Literal[
-                    "name",
                     "age",
-                    "annual_salary",
-                    "year",
-                    "salary_monthly",
                     "age_next_year",
                     "name_upper",
+                    "salary_monthly",
+                    "annual_salary",
+                    "year",
+                    "name",
                 ]
             ],
         )
@@ -219,8 +252,9 @@ if TYPE_CHECKING:
 
         # Window functions
         from pyspark.sql import Window
-
-        window_spec = Window.partitionBy("year").orderBy(F.col("salary_monthly").desc())
+        partitionedWin = Window.partitionBy("year")
+        assert_type(partitionedWin, WindowSpec[Literal["year"]])
+        window_spec = partitionedWin.orderBy(F.col("salary_monthly").desc())
         df5 = df4.withColumn("salary_rank", F.rank().over(window_spec)).withColumn(
             "running_total", F.sum("salary_monthly").over(window_spec)
         )

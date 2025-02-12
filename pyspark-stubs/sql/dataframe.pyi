@@ -23,11 +23,11 @@ from typing_extensions import LiteralString
 
 __all__ = ["DataFrame", "DataFrameNaFunctions", "DataFrameStatFunctions"]
 
-T = TypeVar("T", bound=LiteralString, contravariant=True)
-TAlias = TypeVar("TAlias", bound=LiteralString, covariant=True)
+T = TypeVar("T", bound=LiteralString)
+TAlias = TypeVar("TAlias", bound=LiteralString)
 T2 = TypeVar("T2", bound=LiteralString)
-In = TypeVar("In", bound=LiteralString, covariant=True)
-Out = TypeVar("Out", bound=LiteralString, covariant=True)
+In = TypeVar("In", bound=LiteralString)
+Out = TypeVar("Out", bound=LiteralString)
 InOther = TypeVar("InOther", bound=LiteralString)
 OutOther = TypeVar("OutOther", bound=LiteralString)
 OutOther2 = TypeVar("OutOther2", bound=LiteralString)
@@ -42,7 +42,7 @@ class _JoinContext(Generic[T, T2]):
     @overload
     def select(
         self,
-        *cols: Union[Column[Union[T, T2], OutOther], Column[Literal["lit"], OutLit]],
+        *cols: Column[Union[T, T2, Literal["lit"]], OutOther],
     ) -> DataFrame[OutOther]: ...
     @overload
     def select(
@@ -108,12 +108,9 @@ class DataFrame(PandasMapOpsMixin, PandasConversionMixin, Generic[T]):
     def storageLevel(self) -> StorageLevel: ...
     def unpersist(self, blocking: bool = False) -> DataFrame[T]: ...
     def coalesce(self, numPartitions: int) -> DataFrame[T]: ...
-
     def repartition(
         self, numPartitions: int, *cols: ColumnOrName[T, LiteralString]
     ) -> DataFrame[T]: ...
-
-    
     def repartitionByRange(
         self, numPartitions: int, *cols: ColumnOrName[T, LiteralString]
     ) -> DataFrame[T]: ...
@@ -125,7 +122,10 @@ class DataFrame(PandasMapOpsMixin, PandasConversionMixin, Generic[T]):
         self, withReplacement: bool | None, fraction: float, seed: int | None = ...
     ) -> DataFrame[T]: ...
     def sampleBy(
-        self, col: ColumnOrName[T, T], fractions: dict[Any, float], seed: int | None = None
+        self,
+        col: ColumnOrName[T, T],
+        fractions: dict[Any, float],
+        seed: int | None = None,
     ) -> DataFrame[T]: ...
     def randomSplit(
         self, weights: list[float], seed: int | None = None
@@ -163,16 +163,16 @@ class DataFrame(PandasMapOpsMixin, PandasConversionMixin, Generic[T]):
     @overload
     def __getitem__(self, item: T) -> Column[T, T]: ...
     @overload
-    def __getitem__(self, item: Column[T, T] | list[Column[T, T]] | tuple[Column[T, T], ...]) -> DataFrame[T]: ...
+    def __getitem__(
+        self, item: Column[T, T] | list[Column[T, T]] | tuple[Column[T, T], ...]
+    ) -> DataFrame[T]: ...
     def __getattr__(self, name: T) -> Column[T, T]: ...
     def __dir__(self) -> list[str]: ...
     @overload
-    def select(
-        self, *cols: Union[Column[T, OutOther], Column[Literal["lit"], OutLit]]
-    ) -> DataFrame[Union[OutOther, OutLit]]: ...
+    def select(self, /, __cols: list[Column[T, TResult]]) -> DataFrame[TResult]: ...
     @overload
     def select(
-        self, /, __cols: list[Column[InOther, OutOther]]
+        self, *cols: Column[Union[T, Literal["lit"]], OutOther]
     ) -> DataFrame[OutOther]: ...
     @overload
     def select(self, /, __cols: list[T]) -> DataFrame[T]: ...
@@ -184,34 +184,49 @@ class DataFrame(PandasMapOpsMixin, PandasConversionMixin, Generic[T]):
     @overload
     def groupBy(self, *cols: ColumnOrName[In, Out]) -> GroupedData[T, In]: ...
     @overload
-    def groupBy(self, /, __cols: list[Column[In, Out]] | list[str]) -> GroupedData[T, Out]: ...
+    def groupBy(
+        self, /, __cols: list[Column[In, Out]] | list[str]
+    ) -> GroupedData[T, Out]: ...
     @overload
     def rollup(self, *cols: ColumnOrName[In, Out]) -> GroupedData[T, Out]: ...
     @overload
-    def rollup(self, /, __cols: list[Column[In, Out]] | list[str]) -> GroupedData[T, Out]: ...
+    def rollup(
+        self, /, __cols: list[Column[In, Out]] | list[str]
+    ) -> GroupedData[T, Out]: ...
     @overload
     def cube(self, *cols: ColumnOrName[In, Out]) -> GroupedData[T, Out]: ...
     @overload
-    def cube(self, /, __cols: list[Column[In, Out]] | list[str]) -> GroupedData[T, Out]: ...
+    def cube(
+        self, /, __cols: list[Column[In, Out]] | list[str]
+    ) -> GroupedData[T, Out]: ...
     def unpivot(
         self,
-        ids: ColumnOrName[T, T] | list[ColumnOrName[T, T]] | tuple[ColumnOrName[T, T], ...],
-        values: ColumnOrName[T, T] | list[ColumnOrName[T, T]] | tuple[ColumnOrName[T, T], ...] | None,
+        ids: ColumnOrName[T, T]
+        | list[ColumnOrName[T, T]]
+        | tuple[ColumnOrName[T, T], ...],
+        values: ColumnOrName[T, T]
+        | list[ColumnOrName[T, T]]
+        | tuple[ColumnOrName[T, T], ...]
+        | None,
         variableColumnName: str,
         valueColumnName: str,
     ) -> DataFrame[T]: ...
     def melt(
         self,
-        ids: ColumnOrName[T, T] | list[ColumnOrName[T, T]] | tuple[ColumnOrName[T, T], ...],
-        values: ColumnOrName[T, T] | list[ColumnOrName[T, T]] | tuple[ColumnOrName[T, T], ...] | None,
+        ids: ColumnOrName[T, T]
+        | list[ColumnOrName[T, T]]
+        | tuple[ColumnOrName[T, T], ...],
+        values: ColumnOrName[T, T]
+        | list[ColumnOrName[T, T]]
+        | tuple[ColumnOrName[T, T], ...]
+        | None,
         variableColumnName: str,
         valueColumnName: str,
     ) -> DataFrame[T]: ...
-    def agg(
-        self,
-        *exprs: Column[Any, Out]
+    def agg(self, *exprs: Column[Any, Out]) -> DataFrame[Out]: ...
+    def observe(
+        self, observation: Observation | str, *exprs: Column[Any, Out]
     ) -> DataFrame[Out]: ...
-    def observe(self, observation: Observation | str, *exprs: Column[Any, Out]) -> DataFrame[Out]: ...
     def union(self, other: DataFrame[T2]) -> DataFrame[Union[T, T2]]: ...
     def unionAll(self, other: DataFrame[T2]) -> DataFrame[Union[T, T2]]: ...
     def unionByName(
@@ -265,7 +280,10 @@ class DataFrame(PandasMapOpsMixin, PandasConversionMixin, Generic[T]):
     ) -> DataFrame[T]: ...
     @overload
     def approxQuantile(
-        self, col: str, probabilities: list[float] | tuple[float], relativeError: float
+        self,
+        col: str,
+        probabilities: list[float] | tuple[float],
+        relativeError: float,
     ) -> list[float]: ...
     @overload
     def approxQuantile(
@@ -284,11 +302,13 @@ class DataFrame(PandasMapOpsMixin, PandasConversionMixin, Generic[T]):
         self, *colsMap: dict[T2, Column[T, Out]]
     ) -> DataFrame[Union[T, T2]]: ...
     def withColumn(
-        self, colName: T2, col: Column[Union[T, Literal['lit', 'expr']], Out]
+        self, colName: T2, col: Column[Union[T, Literal["lit", "expr"]], Out]
     ) -> "DataFrame[Union[T, T2]]": ...
     def withColumnRenamed(self, existing: T, new: T2) -> DataFrame[Union[T, T2]]: ...
     def withColumnsRenamed(self, colsMap: dict[str, str]) -> DataFrame[T]: ...
-    def withMetadata(self, columnName: str, metadata: dict[str, Any]) -> DataFrame[T]: ...
+    def withMetadata(
+        self, columnName: str, metadata: dict[str, Any]
+    ) -> DataFrame[T]: ...
     @overload
     def drop(self, cols: ColumnOrName[T, T]) -> DataFrame[T]: ...
     @overload
@@ -324,7 +344,9 @@ class DataFrameNaFunctions(Generic[T]):
         subset: str | tuple[str, ...] | list[str] | None = None,
     ) -> DataFrame[T]: ...
     @overload
-    def fill(self, value: LiteralType, subset: list[str] | None = ...) -> DataFrame[T]: ...
+    def fill(
+        self, value: LiteralType, subset: list[str] | None = ...
+    ) -> DataFrame[T]: ...
     @overload
     def fill(self, value: dict[str, "LiteralType"]) -> DataFrame[T]: ...
     @overload
@@ -365,7 +387,9 @@ class DataFrameStatFunctions(Generic[T]):
     def corr(self, col1: str, col2: str, method: str | None = None) -> float: ...
     def cov(self, col1: str, col2: str) -> float: ...
     def crosstab(self, col1: str, col2: str) -> DataFrame[T]: ...
-    def freqItems(self, cols: list[str], support: float | None = None) -> DataFrame[T]: ...
+    def freqItems(
+        self, cols: list[str], support: float | None = None
+    ) -> DataFrame[T]: ...
     def sampleBy(
         self, col: str, fractions: dict[Any, float], seed: int | None = None
     ) -> DataFrame[T]: ...
